@@ -92,16 +92,19 @@ update _deltaTime gamestate@GameState {..}
     (snakesThatHaveEaten, foodEaten) = eatFood [snake1, snake2] food
     newSnakes = moveSnakes [snake1, snake2] snakesThatHaveEaten
     hasCollided = checkCollision newSnakes
-    (newGen,generatedFood) = if null foodEaten then (generator,food) else spawnFood generator foodEaten
-    newFood = generatedFood ++ (food \\ foodEaten)
-    newState = state{food=newFood,snake1=(newSnakes !! 0),snake2=(newSnakes !! 1),generator=newGen}
+    (newGen, generatedFood) = if null foodEaten then (generator, food) else swap $ spawnFood (length foodEaten) generator
+    newFood = if null foodEaten then food else generatedFood <> (food \\ foodEaten)
+    newState = gamestate {food = newFood, snake1 = (newSnakes !! 0), snake2 = (newSnakes !! 1), generator = newGen}
 
-spawnFood :: StdGen -> [Food] -> (StdGen,[Food])
-spawnFood g = foldr (\_ (a,bs)-> let (newFood,newG) = genRandom a in (newG,newFood:bs)) (g,[])
+-- Generate psuedoRandom `Food`s by threading the `StdGen` value
+-- from each call to `randomR` to the next.
+spawnFood :: Int -> StdGen -> ([Food], StdGen)
+spawnFood n = runState (replicateM n mkState)
   where
-    genRandom :: StdGen -> (Point,StdGen)
-    genRandom = randomR ((0,0), (scale,scale))
-
+    mkState :: State StdGen Point
+    mkState = state (mapFirst fromIntegral . randomR ((0, 0), (scale :: Int, scale :: Int)))
+    mapFirst :: (a -> a') -> ((a, a), b) -> ((a', a'), b)
+    mapFirst f ((x, y), b) = ((f x, f y), b)
 
 checkCollision :: [Snake] -> Bool
 checkCollision = any $ \case
